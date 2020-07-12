@@ -1,5 +1,7 @@
+extern crate matrix_display;
 extern crate rand;
 
+use matrix_display::*;
 use rand::Rng;
 
 struct RangeOfMotion {
@@ -80,6 +82,8 @@ impl Tag {
         index >= (self.m - 1) * self.n
     }
 
+    //TODO: Should move to Range of motion or refactor doesn't really need to
+    //be here
     fn get_range_of_motion(&self, index: usize) -> RangeOfMotion {
         if self.is_top(index) && self.is_left(index) {
             RangeOfMotion {
@@ -176,7 +180,6 @@ impl Tag {
             Some(agents) if agents.len() > 1 => {
                 let tagged_index = (it_index + 1) % agents.len();
                 agents.get_mut(tagged_index).unwrap().tagged();
-                println!("Updating index {:?} to it", tagged_index);
                 agents.get_mut(it_index).unwrap().untagged();
             }
             Some(_) => {}
@@ -205,6 +208,27 @@ impl Tag {
         }
 
         self.grid = new_grid;
+    }
+
+    pub fn get_display_matrix(&self) -> matrix::Matrix<cell::Cell<usize>> {
+        let output_grid = self
+            .grid
+            .iter()
+            .map(|agents| {
+                let mut has_it = false;
+                for agent in agents.iter() {
+                    has_it = has_it || agent.is_it
+                }
+
+                if has_it {
+                    cell::Cell::new(agents.len(), 2, 8)
+                } else {
+                    cell::Cell::new(agents.len(), 1, 10)
+                }
+            })
+            .collect::<Vec<_>>();
+
+        matrix::Matrix::new(4, output_grid)
     }
 }
 
@@ -257,7 +281,9 @@ mod tests {
     fn test_update_should_retain_all_agents() {
         let mut tag = Tag::new();
 
-        tag.update();
+        for _ in 1..10 {
+            tag.update();
+        }
 
         let number_of_agents = tag
             .grid
@@ -265,6 +291,30 @@ mod tests {
             .fold(0 as usize, |count, agents| count + agents.len());
 
         assert_eq!(number_of_agents, 4)
+    }
+
+    #[test]
+    fn test_update_should_have_one_agent_be_it() {
+        let mut tag = Tag::new();
+
+        for _ in 1..1000 {
+            tag.update();
+        }
+
+        let number_of_agents = tag.grid.iter().fold(0 as usize, |count, agents| {
+            let mut has_it = false;
+            for agent in agents.iter() {
+                has_it = has_it || agent.is_it
+            }
+
+            if has_it {
+                count + 1
+            } else {
+                count
+            }
+        });
+
+        assert_eq!(number_of_agents, 1)
     }
 
     #[test]
