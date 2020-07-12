@@ -1,4 +1,4 @@
-.PHONY: help clean test run
+.PHONY: help clean test run build fmt vet
 
 .DEFAULT: help
 
@@ -34,3 +34,6 @@ clean-test: clean test
 
 update:
 	cargo update
+
+run:
+	cargo run
