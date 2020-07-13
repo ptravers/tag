@@ -10,7 +10,8 @@ help:
 	@echo "\tmake fmt 				    - format files"
 	@echo "\tmake vet 				    - lint and validate files"
 	@echo "\tmake test  				  - run tests"
-	@echo "\tmake test  				  - update dependencies"
+	@echo "\tmake bench  				  - run benchmark tests"
+	@echo "\tmake update  			  - update dependencies"
 	@echo ""
 
 clean:
@@ -27,6 +28,9 @@ build: fmt vet
 
 test: build
 	cargo test --verbose
+
+bench: build
+	cargo bench --verbose
 
 clean-build: clean build
 

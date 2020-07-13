@@ -13,6 +13,10 @@ to exit please use `ctrl c`
 ```
 make test
 ```
+to run benchmark
+```
+make bench
+```
 
 ### Parallelism
 The current implemementation is pretty poor for parallelism. I noted that the bench
