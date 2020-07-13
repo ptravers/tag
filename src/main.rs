@@ -1,3 +1,5 @@
+#![feature(test)]
+
 extern crate matrix_display;
 use matrix_display::*;
 pub mod tag;

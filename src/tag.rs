@@ -1,8 +1,12 @@
 extern crate matrix_display;
 extern crate rand;
+extern crate test;
 
 use matrix_display::*;
 use rand::Rng;
+use rayon::prelude::*;
+use std::cell::Cell;
+use std::sync::{Arc, Mutex};
 
 struct RangeOfMotion {
     possible_moves: Vec<Action>,
@@ -143,69 +147,64 @@ impl Tag {
     //TODO: Revisit we do an egregeous number of clones could make a lot of this
     // statically assigned and possibly leverage static lifetimes?
     pub fn update(&mut self) {
-        let mut agent_whose_it: (usize, usize) = (0, 0);
+        let agent_whose_it: Arc<Mutex<Cell<(usize, usize)>>> =
+            Arc::new(Mutex::new(Cell::new((0, 0))));
         // I split out the creation of the action from the performing of the action to make state
         // management simpler further down the line.
-        let actions_by_index: Vec<(usize, Vec<Action>)> =
-            self.grid
-                .iter()
-                .enumerate()
-                .fold(vec![], |mut actions, (key, agents)| {
-                    let range_of_motion = self.get_range_of_motion(key);
+        let actions_by_index: Vec<(usize, Vec<Action>)> = self
+            .grid
+            .par_iter()
+            .enumerate()
+            .filter(|(_, agents)| !agents.is_empty())
+            .map(|(key, agents)| {
+                let range_of_motion = self.get_range_of_motion(key);
 
-                    actions.push((
-                        key,
-                        agents
-                            .iter()
-                            .enumerate()
-                            .map(|(index, agent)| {
-                                if agent.is_it && agents.len() > 1 {
-                                    agent_whose_it = (key, index);
-                                    Action::Tag
-                                } else {
-                                    range_of_motion.get_random_movement()
-                                }
-                            })
-                            .collect(),
-                    ));
-                    actions
-                });
-
-        let mut new_grid = vec![vec![]; 16];
+                (
+                    key,
+                    agents
+                        .iter()
+                        .enumerate()
+                        .map(|(index, agent)| {
+                            if agent.is_it && agents.len() > 1 {
+                                agent_whose_it.lock().unwrap().set((key, index));
+                                Action::Tag
+                            } else {
+                                range_of_motion.get_random_movement()
+                            }
+                        })
+                        .collect(),
+                )
+            })
+            .collect();
 
         // First run the actions of the player whose it as it requires mutating
         // the state of another agent
-        let (it_key, it_index) = agent_whose_it;
-        match self.grid.get_mut(it_key) {
-            Some(agents) if agents.len() > 1 => {
-                let tagged_index = (it_index + 1) % agents.len();
-                agents.get_mut(tagged_index).unwrap().tagged();
-                agents.get_mut(it_index).unwrap().untagged();
-            }
-            Some(_) => {}
-            None => panic!("Invalid State: Cannot find any agents at expected index"),
+        let (it_key, it_index) = agent_whose_it.lock().unwrap().get();
+        let agents = &mut self.grid[it_key];
+        if agents.len() > 1 {
+            let tagged_index = (it_index + 1) % agents.len();
+            agents[tagged_index].tagged();
+            agents[it_index].untagged();
         }
+
+        let mut new_grid = vec![vec![]; self.m * self.n];
 
         // Resolve the actions. It is assumed at this point that all actions present
         // are valid as they were checked at creation.
-        for (key, actions) in &actions_by_index {
-            match self.grid.get_mut(*key) {
-                Some(agents) => {
-                    let mut agents_staying: Vec<Agent> = vec![];
+        actions_by_index.iter().for_each(|(key, actions)| {
+            let agents = &self.grid[*key];
+            let mut agents_staying: Vec<Agent> = vec![];
 
-                    for (agent, action) in agents.clone().iter().zip(actions) {
-                        if let Some(new_index) = Tag::get_next_index(self.n, action, key) {
-                            new_grid.get_mut(new_index).unwrap().push(agent.clone());
-                        } else {
-                            agents_staying.push(agent.clone());
-                        }
-
-                        new_grid.get_mut(*key).unwrap().append(&mut agents_staying);
-                    }
+            for (agent, action) in agents.iter().zip(actions) {
+                if let Some(new_index) = Tag::get_next_index(self.n, action, key) {
+                    new_grid[new_index].push(agent.clone());
+                } else {
+                    agents_staying.push(agent.clone());
                 }
-                None => panic!("Invalid State: Cannot find any agents at expected index"),
+
+                new_grid[*key].append(&mut agents_staying);
             }
-        }
+        });
 
         self.grid = new_grid;
     }
@@ -213,7 +212,7 @@ impl Tag {
     pub fn get_display_matrix(&self) -> matrix::Matrix<cell::Cell<usize>> {
         let output_grid = self
             .grid
-            .iter()
+            .par_iter()
             .map(|agents| {
                 let mut has_it = false;
                 for agent in agents.iter() {
@@ -236,6 +235,7 @@ impl Tag {
 mod tests {
     // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
+    use test::Bencher;
 
     #[test]
     fn test_tag_created_non_empty() {
@@ -268,6 +268,7 @@ mod tests {
         assert!(has_agent_tagged_as_it)
     }
 
+    // This test can flake as all the agents could elect to stay
     #[test]
     fn test_update_should_move_agents() {
         let mut tag = Tag::new();
@@ -281,7 +282,7 @@ mod tests {
     fn test_update_should_retain_all_agents() {
         let mut tag = Tag::new();
 
-        for _ in 1..10 {
+        for _ in 1..1000 {
             tag.update();
         }
 
@@ -335,8 +336,13 @@ mod tests {
 
         assert!(updated_agent_tagged_as_it.is_some());
 
-        println!("{:?}", updated_agent_tagged_as_it.unwrap().id);
-
         assert!(updated_agent_tagged_as_it.unwrap().id != 0)
+    }
+
+    #[bench]
+    fn bench_update(b: &mut Bencher) {
+        let mut tag = Tag::new();
+
+        b.iter(|| tag.update());
     }
 }
