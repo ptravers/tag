@@ -1,4 +1,17 @@
 ## Tag
+The board will show an aggregate of the number of agents at each location in the 4x4 grid.
+The agents are all playing tag and randomly running. If an agent is it they will
+always tag a player unless none is nearby.
+
+The simulation is updated in parallel, mostly. The final update that moves agents
+to their final destination is not done in parallel. The issue here was that to do
+so with Rust's Sync and Send semantics, I would need to rewrite the logic or add
+a mutex on the board which would result in the same or worse performance as not parallelizing at all.
+
+The simulation could be trivially extended to support larger and smaller boards.
+
+I ran out of time whilst starting the process of profiling the system with
+a flamegraph to start looking for more optimal ways to maintain the board.
 
 ### Installation
 Requires that cargo be installed and upto date. Additionally please ensure that
