@@ -10,11 +10,8 @@ a mutex on the board which would result in the same or worse performance as not 
 
 The simulation could be trivially extended to support larger and smaller boards.
 
-I ran out of time whilst starting the process of profiling the system with
-a flamegraph to start looking for more optimal ways to maintain the board.
-
 ### Installation
-Requires that cargo be installed and upto date. Additionally please ensure that
+Requires that cargo be installed and up to date. Additionally please ensure that
 you have an internet connection as it requires the downloading of two libraries.
 
 ### Run
