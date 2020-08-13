@@ -201,9 +201,9 @@ impl Tag {
                 } else {
                     agents_staying.push(agent.clone());
                 }
-
-                new_grid[*key].append(&mut agents_staying);
             }
+
+            new_grid[*key].append(&mut agents_staying);
         });
 
         self.grid = new_grid;
@@ -233,7 +233,6 @@ impl Tag {
 
 #[cfg(test)]
 mod tests {
-    // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
     use test::Bencher;
 
@@ -282,9 +281,7 @@ mod tests {
     fn test_update_should_retain_all_agents() {
         let mut tag = Tag::new();
 
-        for _ in 1..1000 {
-            tag.update();
-        }
+        tag.update();
 
         let number_of_agents = tag
             .grid
@@ -298,10 +295,7 @@ mod tests {
     fn test_update_should_have_one_agent_be_it() {
         let mut tag = Tag::new();
 
-        for _ in 1..1000 {
-            tag.update();
-        }
-
+        tag.update();
         let number_of_agents = tag.grid.iter().fold(0 as usize, |count, agents| {
             let mut has_it = false;
             for agent in agents.iter() {
